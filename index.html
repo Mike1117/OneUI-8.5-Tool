@@ -3,43 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OneUI 8.5 快速設定背景裁切工具</title>
+    <title>OneUI 媒體播放器背景裁切工具</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; background-color: #f4f6f9; color: #333; }
-        h2 { text-align: center; }
-        .upload-area { border: 2px dashed #007bff; padding: 40px; text-align: center; cursor: pointer; background: #fff; border-radius: 10px; transition: 0.3s; }
-        .upload-area:hover { background: #e9f2ff; }
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; line-height: 1.6; background-color: #f4f6f9; color: #333; }
+        h2 { text-align: center; font-size: 1.5rem; }
+        .upload-area { border: 2px dashed #007bff; padding: 30px; text-align: center; cursor: pointer; background: #fff; border-radius: 10px; }
         
-        #workspace { display: none; margin-top: 20px; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .img-container { max-height: 500px; margin-bottom: 20px; }
+        #workspace { display: none; margin-top: 20px; background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .img-container { max-height: 60vh; margin-bottom: 20px; }
         img { display: block; max-width: 100%; }
         
-        .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; border-radius: 6px; cursor: pointer; border: none; font-size: 16px; margin-right: 10px; transition: 0.2s; }
-        .btn:hover { background: #0056b3; }
-        .btn-success { background: #28a745; }
-        .btn-success:hover { background: #218838; }
+        .btn { display: inline-block; background: #007bff; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; border: none; font-size: 16px; font-weight: bold; width: 100%; box-sizing: border-box; margin-bottom: 10px; text-align: center; text-decoration: none; }
         
-        #result-area { display: none; margin-top: 30px; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .preview-box { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        .preview-box:last-child { border-bottom: none; }
-        .preview-box img { max-width: 300px; border: 1px solid #ddd; border-radius: 4px; }
+        #result-area { display: none; margin-top: 20px; }
+        .hint-text { background: #e9f2ff; color: #0056b3; padding: 10px; border-radius: 6px; font-size: 0.9rem; margin-bottom: 20px; text-align: center; font-weight: bold; }
+        
+        .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .preview-box { background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+        .preview-box img { width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; -webkit-touch-callout: default; /* 確保手機長按選單選得出 */ }
+        .btn-download-single { background: #28a745; font-size: 14px; padding: 8px 12px; margin-bottom: 0; }
     </style>
 </head>
 <body>
 
-    <h2>OneUI 8.5 快速設定背景裁切工具</h2>
+    <h2>OneUI 背景裁切工具</h2>
     
     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-        <h3>點擊此處上傳圖片</h3>
-        <p>支援 JPG, PNG 格式</p>
+        <h3>點擊上傳圖片</h3>
+        <p>支援手機相簿照片</p>
         <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
 
     <div id="workspace">
-        <h3>調整圖片範圍 (比例 1.15 : 1)</h3>
+        <h3>調整裁切範圍</h3>
         <div class="img-container">
             <img id="image-to-crop" src="">
         </div>
@@ -48,9 +47,9 @@
     </div>
 
     <div id="result-area">
-        <button id="downloadBtn" class="btn btn-success">直接下載 4 張分割圖</button>
-        <p style="font-size: 0.9em; color: #666;">※ 若瀏覽器提示「允許下載多個檔案」，請點選允許以完成所有下載。</p>
-        <div id="result" style="margin-top: 20px;"></div>
+        <div class="hint-text">💡 手機用戶：請長按下方圖片選擇「儲存影像」，或個別點擊下載鈕。</div>
+        <div id="result" class="preview-grid"></div>
+        <button onclick="location.reload()" class="btn" style="background:#6c757d; margin-top: 20px;">裁切下一張</button>
     </div>
 
     <script>
@@ -61,13 +60,10 @@
         const cancelBtn = document.getElementById('cancelBtn');
         const resultArea = document.getElementById('result-area');
         const resultDiv = document.getElementById('result');
-        const downloadBtn = document.getElementById('downloadBtn');
         
         let cropper = null;
         let originalFileName = "image.png";
-        let croppedBlobs = [];
 
-        // OneUI 絕對像素配置
         const blocks = [
             { type: "content", height: 588 },
             { type: "gap",     height: 30 },
@@ -93,7 +89,7 @@
                 workspace.style.display = 'block';
 
                 cropper = new Cropper(imageToCrop, {
-                    aspectRatio: 1 / 1.15, 
+                    aspectRatio: 1 / 1.15, // 寬 1 : 高 1.15
                     viewMode: 1,
                     autoCropArea: 0.9,
                     background: false,
@@ -124,87 +120,59 @@
             cropper = null;
         });
 
-        // 修正後的核心分割邏輯 (吃 Canvas)
-function sliceOneUIBlocks(sourceCanvas) {
-    resultDiv.innerHTML = '<h3>裁切完成預覽：</h3>';
-    croppedBlobs = [];
-    
-    const imgW = sourceCanvas.width;
-    const imgH = sourceCanvas.height;
-    const scaleFactor = imgH / totalLogicalH;
+        function sliceOneUIBlocks(sourceCanvas) {
+            resultDiv.innerHTML = '';
+            
+            const imgW = sourceCanvas.width;
+            const imgH = sourceCanvas.height;
+            const scaleFactor = imgH / totalLogicalH;
 
-    let currentY = 0;
-    let blockIndex = 1;
-    const baseName = originalFileName.split('.')[0] || 'oneui_bg';
+            let currentY = 0;
+            let blockIndex = 1;
+            const baseName = originalFileName.split('.')[0] || 'oneui_bg';
 
-    blocks.forEach(block => {
-        const logicalH = block.height;
-        const top = Math.floor(currentY * scaleFactor);
-        const bottom = Math.floor((currentY + logicalH) * scaleFactor);
-        const blockActualH = bottom - top;
+            blocks.forEach(block => {
+                const logicalH = block.height;
+                const top = Math.floor(currentY * scaleFactor);
+                const bottom = Math.floor((currentY + logicalH) * scaleFactor);
+                const blockActualH = bottom - top;
 
-        if (block.type === "content") {
-            const blockCanvas = document.createElement('canvas');
-            blockCanvas.width = imgW;
-            blockCanvas.height = blockActualH;
-            const ctx = blockCanvas.getContext('2d');
+                if (block.type === "content") {
+                    const blockCanvas = document.createElement('canvas');
+                    blockCanvas.width = imgW;
+                    blockCanvas.height = blockActualH;
+                    const ctx = blockCanvas.getContext('2d');
 
-            ctx.drawImage(sourceCanvas, 0, top, imgW, blockActualH, 0, 0, imgW, blockActualH);
+                    ctx.drawImage(sourceCanvas, 0, top, imgW, blockActualH, 0, 0, imgW, blockActualH);
 
-            const previewBox = document.createElement('div');
-            previewBox.className = 'preview-box';
-            previewBox.innerHTML = `<p style="margin:5px 0 10px 0; font-weight:bold;">區塊 ${blockIndex}</p>`;
-            const previewImg = new Image();
-            previewImg.src = blockCanvas.toDataURL('image/png');
-            previewBox.appendChild(previewImg);
-            resultDiv.appendChild(previewBox);
+                    // 轉換成 Base64 DataURL，這樣手機才能直接長按儲存
+                    const imgDataUrl = blockCanvas.toDataURL('image/png');
+                    const currentName = `${baseName}_part${blockIndex}.png`;
 
-            // --- 修正 Async Bug 的核心部分開始 ---
-            // 關鍵：在 content 區塊內部宣告一個常數，擷取當下的檔名
-            const currentName = `${baseName}_part${blockIndex}.png`;
-            // 隨即遞增 blockIndex，確保下一個 content 區塊獲得下一個數字
-            blockIndex++; 
-
-            // toBlob 為非同步動作
-            blockCanvas.toBlob(blob => {
-                // 背景執行緒執行到這裡時，存取的是剛剛擷取的正確 currentName
-                croppedBlobs.push({
-                    name: currentName, // 這裡會是 part1, part2, ...
-                    blob: blob
-                });
-            }, 'image/png');
-            // --- 修正 Async Bug 的核心部分結束 ---
-
-            // 注意：原本錯誤程式碼中的 blockIndex++ 是放在 toBlob 外面的 blockIndex 變數上
-            // 導致迴圈執行完時 blockIndex 已經是 5，
-            // 之後所有 toBlob 的回調函式存取的都是 5。
-        }
-        currentY += logicalH;
-    });
-}
-
-        // 修改後的連續下載邏輯
-        downloadBtn.addEventListener('click', function() {
-            croppedBlobs.forEach((item, index) => {
-                // 使用 setTimeout 製造微小的時間差，降低瀏覽器阻擋多檔案下載的機率
-                setTimeout(() => {
-                    const element = document.createElement('a');
-                    const objectUrl = URL.createObjectURL(item.blob);
+                    // 建立 UI 區塊
+                    const previewBox = document.createElement('div');
+                    previewBox.className = 'preview-box';
                     
-                    element.href = objectUrl;
-                    element.download = item.name;
-                    
-                    document.body.appendChild(element);
-                    element.click();
-                    document.body.removeChild(element);
-                    
-                    // 稍後釋放記憶體，避免 Memory Leak
-                    setTimeout(() => {
-                        URL.revokeObjectURL(objectUrl);
-                    }, 1000);
-                }, index * 200); // 每張圖間隔 200 毫秒
+                    // 圖片標籤 (允許手機長按)
+                    const previewImg = new Image();
+                    previewImg.src = imgDataUrl;
+                    previewBox.appendChild(previewImg);
+
+                    // 個別下載按鈕 (用 <a> 標籤包裝，手機點擊相容性最好)
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = imgDataUrl;
+                    downloadLink.download = currentName;
+                    downloadLink.className = 'btn btn-download-single';
+                    downloadLink.innerText = `下載區塊 ${blockIndex}`;
+                    previewBox.appendChild(downloadLink);
+
+                    resultDiv.appendChild(previewBox);
+
+                    blockIndex++;
+                }
+                currentY += logicalH;
             });
-        });
+        }
     </script>
 </body>
 </html>
